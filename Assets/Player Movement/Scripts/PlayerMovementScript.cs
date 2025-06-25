@@ -17,6 +17,7 @@ namespace PlayerMovement
         [SerializeField] float _CoyoteTime = .15f;
         [SerializeField] float _JumpForce = 5;
         [SerializeField] float _GravityMultiplier = 1;
+        [SerializeField] float _StepHeight = .2f;
 
         const float Rounder = .02f;
         const float Gravity = 9.8f;
@@ -81,7 +82,7 @@ namespace PlayerMovement
             moveVector += input;
 
             //Handle collision
-            moveVector = HandleCollisionAndSlide(moveVector);
+            moveVector = HandleCollision(moveVector);
 
             //Set position
             position = position + moveVector;
@@ -114,10 +115,13 @@ namespace PlayerMovement
                 return moveVector;
             }
 
-            Vector3 HandleCollisionAndSlide(Vector3 moveVector)
+            Vector3 HandleCollision(Vector3 moveVector)
             {
+                //Ignore if standing still
                 if (moveVector.sqrMagnitude > 0.001f)
                 {
+
+                    //Set capsule cast values
                     float rad = _collider.radius;
                     float distToSphere = _collider.height / 2 - rad;
                     Vector3 center = _collider.center + _collider.transform.position;
@@ -127,13 +131,36 @@ namespace PlayerMovement
                     float maxDist = moveVector.magnitude;
                     var dir = moveVector.normalized;
 
+                    //Check if there is a wall
                     if (Physics.CapsuleCast(pos1, pos2, rad, dir, out RaycastHit
                         hitInfo, maxDist, -1, QueryTriggerInteraction.Ignore))
                     {
+
+                        ////CHECK STEP-UP
+                        //Vector3 stepLocation = moveVector;
+                        //stepLocation.y += _StepHeight;
+
+                        ////If you can go to the stepped up location...
+                        //if (Physics.CheckCapsule(pos1 + stepLocation, pos2 + stepLocation,
+                        //    rad, -1, QueryTriggerInteraction.Ignore) == false)
+                        //{
+
+                        //    //...find where the ground is
+                        //    Ray ray = new(_collider.transform.position + stepLocation, Vector3.down);
+                        //    if (Physics.Raycast(ray, out RaycastHit hit, _StepHeight + Rounder))
+                        //    {
+                        //        return hit.point - position;
+                        //    }
+
+                        //    //If ground can't be found, just continue with the slide
+                        //}
+
+                        //HANDLE SLIDE
                         float dist = hitInfo.distance;
                         var remaining = maxDist - dist;
                         var newMovement = dir * (dist - Rounder);
 
+                        //Calculate slide vector
                         Vector3 rotatedNorm = Quaternion.AngleAxis(90, Vector3.up) * hitInfo.normal;
                         float dot = Vector3.Dot(rotatedNorm, dir);
                         Vector3 slideVector = (rotatedNorm * dot) * remaining;
@@ -141,12 +168,14 @@ namespace PlayerMovement
                         pos1 += newMovement;
                         pos2 += newMovement;
 
+                        //Check second collision for sliding
                         if (Physics.CapsuleCast(pos1, pos2, rad, slideVector.normalized, out
                         hitInfo, slideVector.magnitude, -1, QueryTriggerInteraction.Ignore))
                         {
                             slideVector = slideVector.normalized * (hitInfo.distance - Rounder);
                         }
 
+                        //Set move vector
                         moveVector = newMovement + slideVector;
                     }
                 }
